@@ -1,0 +1,99 @@
+version: 0.2
+
+
+phases:
+  install:
+    runtime-versions:
+      golang: 1.16
+      nodejs: 12
+    commands:
+      - echo Installing CDK..
+      - npm i cdk@v2.21.1 -g
+      - go get -u github.com/jstemmer/go-junit-report 
+      - echo Installing steampipe
+      - curl -fsSL https://raw.githubusercontent.com/turbot/steampipe/main/install.sh >install.sh
+      - chmod +x install.sh
+      - ./install.sh
+      # Use clone
+      # - git clone https://github.com/turbot/steampipe-mod-aws-compliance.git
+      # PR #371 closed
+      # PR #377 open 
+      - git clone https://github.com/megaproaktiv/steampipe-mod-aws-compliance.git     
+      - mkdir /home/codebuild-user
+      # Steampipe refuse to run as root
+      - chown codebuild-user /home/codebuild-user
+      - chown codebuild-user steampipe-mod-aws-compliance
+  pre_build:
+    commands:
+      #############
+      # Unit Test
+      #############
+      - echo Unit Testing app...
+      - cd $CODEBUILD_SRC_DIR/app
+      - go test -v  2>&1 | go-junit-report >$CODEBUILD_SRC_DIR/report-app.xml
+      - env GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/main main/main.go
+      - chmod +x dist/main
+      - cd dist && zip main.zip main
+      - echo Unit Testing infra...
+      - cd $CODEBUILD_SRC_DIR/infra
+      - go test -v  2>&1 | go-junit-report >$CODEBUILD_SRC_DIR/report-infra.xml
+      - echo Deploying infra
+      - cd $CODEBUILD_SRC_DIR/infra
+      #####################
+      # Deploy
+      #####################
+      - cdk deploy --require-approval never
+      #####################
+      # Integration Test
+      #####################
+      - echo Integration Testing infra...
+      - export I_TEST=yes &&  go test -v  2>&1 | go-junit-report >$CODEBUILD_SRC_DIR/report-infra-integration.xml
+      - cd $CODEBUILD_SRC_DIR/app
+      - echo Integration Testing App...
+      - export I_TEST=yes && go test -v  2>&1 | go-junit-report >$CODEBUILD_SRC_DIR/report-app-integration.xml
+      - echo Security check
+  build:
+    run-as: codebuild-user
+    commands:
+      #####################
+      # Security Check
+      #####################
+      - echo Integration Testing security
+      - steampipe plugin install steampipe
+      - steampipe plugin install aws
+      - cd $CODEBUILD_SRC_DIR/steampipe-mod-aws-compliance
+      ## Ignore exit state
+      - steampipe check benchmark.foundational_security --export=check.html --export=check.nunit3.xml || true
+      - cat check.nunit3.xml | sed -e"s/<root_account>/root_account/" >tmp.xml
+      - mv tmp.xml check.nunit3.xml
+  post_build:
+    commands:
+      - cp check.nunit3.xml $CODEBUILD_SRC_DIR/check.nunit3.xml
+      - cd $CODEBUILD_SRC_DIR/infra
+      - echo Destroying infra
+      #####################
+      # Destroy
+      #####################
+      - cdk destroy -f
+      
+#####################
+# Reports
+#####################
+reports:
+  UnitTesting:
+    files:
+      - report-app.xml
+      - report-infra.xml
+    base-directory: $CODEBUILD_SRC_DIR
+    file-format: "JUNITXML"
+  IntegrationTesting:
+    files:
+      - report-app-integration.xml
+      - report-infra-integration.xml
+    base-directory: $CODEBUILD_SRC_DIR
+    file-format: "JUNITXML"
+  SecurityChecks:
+    files:
+      - check.nunit3.xml
+    base-directory: $CODEBUILD_SRC_DIR
+    file-format: NUNIT3XML

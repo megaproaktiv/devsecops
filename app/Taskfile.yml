@@ -1,0 +1,34 @@
+# https://taskfile.dev
+
+## Build Management only for go
+
+version: '3'
+
+env:
+  AWS_DEFAULT_REGION: eu-central-1
+
+tasks:
+  default:
+    deps: [build]
+
+  build:
+    desc: build go
+    cmds:
+      - env GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/main main/main.go
+      - chmod +x dist/main
+      - cd dist && zip main.zip main
+    sources:
+      - ./*.go
+      - main/*.go
+    generates:
+      - dist/main.zip
+    silent: true
+
+  fastdeploy:
+    desc: Deploy only lambda
+    deps: [build]
+    vars:
+      FN:      
+        sh: aws ssm get-parameter --name "/goa-serverless/handler" --query "Parameter.Value" --output text
+    cmds:
+      - aws lambda update-function-code --function-name  {{.FN}} --zip-file fileb://dist/main.zip
