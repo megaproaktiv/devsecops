@@ -67,5 +67,5 @@ See [Go on AWS Website](https://www.go-on-aws.com/architectures/serverless-dsl/)
 
 *  [AWS Foundational Security Best Practise controls](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-standards-fsbp-controls.html)
 * [AWS Compliance Mod](https://hub.steampipe.io/mods/turbot/aws_compliance)
-* [steampipe](https://hub.steampipe.io/).
+* [steampipe](https://hub.steampipe.io/)
 
