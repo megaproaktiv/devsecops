@@ -7,6 +7,8 @@ phases:
       golang: 1.16
       nodejs: 12
     commands:
+      - echo Generation credential-report
+      - aws iam generate-credential-report
       - echo Installing CDK..
       - npm i cdk@v2.21.1 -g
       - go get -u github.com/jstemmer/go-junit-report 
