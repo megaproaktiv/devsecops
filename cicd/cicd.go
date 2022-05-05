@@ -90,6 +90,7 @@ func NewCicdStack(scope constructs.Construct, id string, props *CicdStackProps) 
 			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 				Actions: &[]*string{
 					aws.String("iam:PassRole"),
+					aws.String("iam:GenerateCredentialReport"),
 				},
 				Resources: &[]*string{
 					aws.String("*"),
