@@ -1,0 +1,14 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  GREETING: Hello, World!
+
+tasks:
+  check:
+    desc: cfn-guard check
+    cmds:
+      - cdk synth
+      - cfn-guard validate --data cdk.out/dsl.template.json --rules dynamodb-1-cfn.guard
+    silent: true
